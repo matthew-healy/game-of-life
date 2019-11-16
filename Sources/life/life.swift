@@ -1,6 +1,5 @@
 public struct Game {
     private var liveCells: Set<Coordinate> = []
-    private var cellState: CellState = .dead
 
     public init() {}
 
@@ -9,12 +8,40 @@ public struct Game {
     }
 
     public mutating func nextGeneration() {
-        let shouldBeRevived = liveCells.count == 2 || liveCells.count == 3
-        cellState = shouldBeRevived ? .live : .dead
+        forAllRelevantCells { coordinate in
+            switch countLiveNeighbours(of: coordinate) {
+            case (..<2): liveCells.remove(coordinate)
+            case 3: liveCells.insert(coordinate)
+            case (4...): liveCells.remove(coordinate)
+            default: return
+            }
+        }
     }
 
-    public func state(atCoordinate: (x: Int, y: Int)) -> CellState {
-        return cellState
+    /// We define a "relevant" cell to be any cell
+    /// which is at least as close to (0, 0) as the
+    /// furthest-away live cell
+    private func forAllRelevantCells(_ f: (Coordinate) -> ()) {
+        for x in -5...5 {
+            for y in -5...5 {
+                let coordinate = Coordinate(x: x, y: y)
+                f(coordinate)
+            }
+        }
+    }
+
+    private func countLiveNeighbours(of coordinate: Coordinate) -> Int {
+        return liveCells.filter(isNeighbour(of: coordinate)).count
+    }
+
+    private func isNeighbour(of coordinate: Coordinate) -> (Coordinate) -> Bool {
+        return { other in coordinate.distance(to: other) == 1 }
+    }
+
+    public func state(at coordinate: Coordinate) -> CellState {
+        return liveCells.contains(coordinate)
+            ? .live
+            : .dead
     }
 }
 
@@ -25,6 +52,12 @@ public struct Coordinate: Hashable {
     public init(x: Int, y: Int) {
         self.x = x
         self.y = y
+    }
+
+    /// This is the Chebyshev distance
+    /// i.e., the max of the distance in each dimension
+    func distance(to other: Coordinate) -> Int {
+        return max(abs(x - other.x), abs(y - other.y))
     }
 }
 
